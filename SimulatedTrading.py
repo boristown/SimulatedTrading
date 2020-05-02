@@ -1,6 +1,5 @@
 import mydb
 import mytrader
-import math
 
 tags = mydb.get_tags()
 trailingStop = 2.0
@@ -24,7 +23,7 @@ for tag in tags:
         balance[current_date] = currentbalance
         profit[current_date] = currentprofit
         profitrate[current_date] = currentprofitrate
-        if math.abs(score) > thresholdScore:
+        if score > thresholdScore:
             symboldict[current_date] = bestsymbol
             atrdict[current_date] = atr
             position = mytrader.new_position(current_date, bestsymbol, side, atr, price, balance)
