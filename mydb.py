@@ -89,6 +89,9 @@ def get_atr(symbol, current_date):
     sql_results = mycursor.fetchall()
     for sql_result in sql_results:
         atr = float(sql_result[0])
+    update_str = "update zeroai.pricehistory set ATR = " + str(atr) + " where SYMBOL = '" + symbol + "' and DATE = '" + date_str + "' "
+    mycursor.execute(update_str)
+    mydb.commit()    # 数据表内容有更新，必须使用到该语句
     return atr
 
 def get_tickers(symbols, current_date):
@@ -117,10 +120,12 @@ def get_tickers(symbols, current_date):
             "f": sql_result[7],
             "pricetime": sql_result[8],
             "predicttime": sql_result[9],
+            "atr": sql_result[10],
                        }
         tickerlist.append(result_item)
         tickers[sql_result[0]] = result_item
 
+    atr = None
     if len(sql_result) >0:
         score1 = tickerlist[0]["f"] * 2 - 1
         score2 = tickerlist[-1]["f"] * 2 - 1
@@ -131,6 +136,7 @@ def get_tickers(symbols, current_date):
             bestscore = score2
             bestrow = tickerlist[-1]
         bestsymbol = bestrow["symbol"]
+        atr = bestrow["atr"]
         score = abs(bestscore) * 100
         if bestscore > 0:
             side = "buy"
@@ -138,7 +144,7 @@ def get_tickers(symbols, current_date):
             side = "sell"
         price = bestrow["c"]
 
-    return bestsymbol, score, side, price, tickers
+    return bestsymbol, score, side, price, tickers, atr
 
 def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict):
     myconnector, mycursor = init_mycursor()

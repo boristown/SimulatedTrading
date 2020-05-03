@@ -22,12 +22,13 @@ for tag in tags:
     sidedict = {}
     print("TAG:" + tag)
     for current_date in datelist:
-        bestsymbol, score, side, price, tickers = mydb.get_tickers(symbols, current_date)
+        bestsymbol, score, side, price, tickers, atr = mydb.get_tickers(symbols, current_date)
         positions, currentbalance, currentprofit, currentprofitrate = mytrader.update_balance(positions, current_date, tickers, currentbalance, trailingStop)
         balancedict[current_date] = currentbalance
         profit[current_date] = currentprofit
         profitrate[current_date] = currentprofitrate
-        atr = mydb.get_atr(bestsymbol, current_date)
+        if atr is None:
+            atr = mydb.get_atr(bestsymbol, current_date)
         print("$"+ str(currentbalance) + ";" + tag + ":" + str(current_date) + ";Score:" + str(score) + ";ATR:" + str(atr) + ";Positions:" + str(len(positions)))
         if score > thresholdScore and atr > 0:
             symboldict[current_date] = bestsymbol
