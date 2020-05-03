@@ -30,7 +30,7 @@ for tag in tags:
         if atr is None:
             atr = mydb.get_atr(bestsymbol, current_date)
         print("$"+ str(currentbalance) + ";" + tag + ":" + str(current_date) + ";Score:" + str(score) + ";ATR:" + str(atr) + ";Positions:" + str(len(positions))+";Symbol:" + str(bestsymbol) + ";Side:" + side)
-        if score > thresholdScore and atr > 0:
+        if score > thresholdScore and atr > 0 and price > 0:
             symboldict[current_date] = bestsymbol
             atrdict[current_date] = atr
             position = mytrader.new_position(current_date, bestsymbol, side, atr, price, currentbalance,positionratio)
