@@ -5,7 +5,7 @@ tags = mydb.get_tags()
 trailingStop = 2
 thresholdScore = 90
 positionratio = 1
-aiversion = '海龟4号'
+aiversion = '海龟2号'
 
 for tag in tags:
     symbols = mydb.get_symbols(tag)

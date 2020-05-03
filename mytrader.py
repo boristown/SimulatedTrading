@@ -7,7 +7,7 @@ def update_balance(positions, current_date, tickers, currentbalance, trailingSto
         if position["symbol"] in tickers:
             symbolticker = tickers[position["symbol"]]
             if position["side"] == "buy":
-                if position["highprice"] / symbolticker["l"]  > stoplosspoint:
+                if symbolticker["l"] > 0 and position["highprice"] / symbolticker["l"]  > stoplosspoint:
                     position["exitprice"] = position["highprice"] / stoplosspoint
                     position["profit"] = position["size"] * (position["exitprice"] / position["entryprice"] - 1.0)
                     currentprofit = currentprofit + position["profit"]
@@ -16,7 +16,7 @@ def update_balance(positions, current_date, tickers, currentbalance, trailingSto
                 if symbolticker["h"] > position["highprice"]:
                     position["highprice"] = symbolticker["h"]
             else:
-                if  symbolticker["h"] / position["lowprice"] > stoplosspoint:
+                if  position["lowprice"] > 0 and symbolticker["h"] / position["lowprice"] > stoplosspoint:
                     position["exitprice"] = position["lowprice"] * stoplosspoint
                     position["profit"] = position["size"] * (position["entryprice"] / position["exitprice"] - 1.0)
                     currentprofit = currentprofit + position["profit"]
