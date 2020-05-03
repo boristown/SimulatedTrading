@@ -70,7 +70,7 @@ def get_datelist(symbols):
     datelist = []
     myconnector, mycursor = init_mycursor()
     sql_statement = "SELECT distinct date FROM zeroai.pricehistory " \
-        " where SYMBOL in (%s) order by date " % ','.join(['%s']*len(symbols))
+        " where F <> 0.5 and  SYMBOL in (%s) order by date " % ','.join(['%s']*len(symbols))
 
     mycursor.execute(sql_statement, symbols)
     sql_results = mycursor.fetchall()
@@ -78,19 +78,32 @@ def get_datelist(symbols):
         datelist.append(sql_result[0])
     return datelist
 
+def get_atr(symbol, current_date):
+    atr = 0.0
+    myconnector, mycursor = init_mycursor()
+    date_str = current_date.strftime("%Y-%m-%d")
+    sql_statement = "select avg(TR) from ( SELECT h/l-1 as TR FROM zeroai.pricehistory " \
+        " where DATE <= '" + date_str + "' and SYMBOL = '" + symbol + "' " \
+        " order by DATE limit 120 ) TRS"
+    mycursor.execute(sql_statement)
+    sql_results = mycursor.fetchall()
+    for sql_result in sql_results:
+        atr = float(sql_result[0])
+    return atr
+
 def get_tickers(symbols, current_date):
+    myconnector, mycursor = init_mycursor()
     bestsymbol = None
     score = 0.0
     side = 'buy'
-    atr = 0.0
     price = 0.0
     tickers = {}
     tickerlist = []
     date_str = current_date.strftime("%Y-%m-%d")
     sql_statement = "SELECT * FROM zeroai.pricehistory " \
         " where DATE = '" + date_str + "' and SYMBOL in (%s) " \
-        " order by F " % ','.join(['%s']*len(markets))
-    mycursor.execute(sql_statement, markets)
+        " order by F " % ','.join(['%s']*len(symbols))
+    mycursor.execute(sql_statement, symbols)
     sql_results = mycursor.fetchall()
     for sql_result in sql_results:
         result_item = { 
@@ -111,21 +124,21 @@ def get_tickers(symbols, current_date):
     if len(sql_result) >0:
         score1 = tickerlist[0]["f"] * 2 - 1
         score2 = tickerlist[-1]["f"] * 2 - 1
-        if math.abs(score1) >= math.abs(score2):
+        if abs(score1) >= abs(score2):
             bestscore = score1
             bestrow = tickerlist[0]
         else:
             bestscore = score2
             bestrow = tickerlist[-1]
         bestsymbol = bestrow["symbol"]
-        score = math.abs(bestscore) * 100
+        score = abs(bestscore) * 100
         if bestscore > 0:
             side = "buy"
         else:
             side = "sell"
         price = bestrow["c"]
 
-    return bestsymbol, score, side, atr, price, tickers
+    return bestsymbol, score, side, price, tickers
 
 def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict):
     myconnector, mycursor = init_mycursor()

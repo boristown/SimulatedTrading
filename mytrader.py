@@ -28,7 +28,7 @@ def update_balance(positions, current_date, tickers, currentbalance, trailingSto
     currentbalance = currentbalance + currentprofit
     return positions, currentbalance, currentprofit, currentprofitrate
 
-def new_position(current_date, bestsymbol, side, atr, price, balance, positionratio):
+def new_position(current_date, bestsymbol, side, atr, price, currentbalance, positionratio):
     position = {
         "symbol" : bestsymbol,
         "entrydate" : current_date,
@@ -37,12 +37,12 @@ def new_position(current_date, bestsymbol, side, atr, price, balance, positionra
         "size" : 0.0,
         "atr": atr,
         "entryprice":price,
-        "balance":balance,
+        "balance":currentbalance,
         "highprice":price,
         "lowprice":price,
         "exitprice":price,
         "profit":0.0,
         }
-    positionsize = balance * 0.01 * positionratio / atr
+    positionsize = currentbalance * 0.01 * positionratio / atr
     position["size"] = positionsize
     return position

@@ -12,7 +12,7 @@ for tag in tags:
     datelist = mydb.get_datelist(symbols)
     currentbalance = 1.0
     positions = []
-    balance = {}
+    balancedict = {}
     profit = {}
     profitrate = {}
     symboldict = {}
@@ -20,18 +20,21 @@ for tag in tags:
     sizedict = {}
     scoredict = {}
     sidedict = {}
+    print("TAG:" + tag)
     for current_date in datelist:
-        bestsymbol, score, side, atr, price, tickers = mydb.get_tickers(symbols, current_date)
+        bestsymbol, score, side, price, tickers = mydb.get_tickers(symbols, current_date)
         positions, currentbalance, currentprofit, currentprofitrate = mytrader.update_balance(positions, current_date, tickers, currentbalance, trailingStop)
-        balance[current_date] = currentbalance
+        balancedict[current_date] = currentbalance
         profit[current_date] = currentprofit
         profitrate[current_date] = currentprofitrate
+        atr = mydb.get_atr(bestsymbol, current_date)
+        print("$"+ str(currentbalance) + ";" + tag + ":" + str(current_date) + ";Score:" + str(score) + ";ATR:" + str(atr))
         if score > thresholdScore and atr > 0:
             symboldict[current_date] = bestsymbol
             atrdict[current_date] = atr
-            position = mytrader.new_position(current_date, bestsymbol, side, atr, price, balance,positionratio)
+            position = mytrader.new_position(current_date, bestsymbol, side, atr, price, currentbalance,positionratio)
             positions.append(position)
             sizedict[current_date] = position["size"]
             scoredict[current_date] = score
             sidedict[current_date] = side
-    mydb.write_trading_log(tag, aiversion, trailingStop, thresholdScore, positionratio, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict)
+    mydb.write_trading_log(tag, aiversion, trailingStop, thresholdScore, positionratio, datelist, balancedict, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict)
