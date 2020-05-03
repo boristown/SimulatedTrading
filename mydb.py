@@ -91,7 +91,7 @@ def get_atr(symbol, current_date):
         atr = float(sql_result[0])
     update_str = "update zeroai.pricehistory set ATR = " + str(atr) + " where SYMBOL = '" + symbol + "' and DATE = '" + date_str + "' "
     mycursor.execute(update_str)
-    mydb.commit()    # 数据表内容有更新，必须使用到该语句
+    myconnector.commit()    # 数据表内容有更新，必须使用到该语句
     return atr
 
 def get_tickers(symbols, current_date):
@@ -180,5 +180,5 @@ def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, da
             sidedict[current_date] if current_date in sidedict else None
             ))
     mycursor.executemany(insert_sql, insert_val)
-    mydb.commit()    # 数据表内容有更新，必须使用到该语句
+    myconnector.commit()    # 数据表内容有更新，必须使用到该语句
     print(mycursor.rowcount, 'TAG:"' + tag + '"更新成功。')
