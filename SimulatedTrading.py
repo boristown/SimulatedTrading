@@ -28,7 +28,7 @@ for tag in tags:
         profit[current_date] = currentprofit
         profitrate[current_date] = currentprofitrate
         atr = mydb.get_atr(bestsymbol, current_date)
-        print("$"+ str(currentbalance) + ";" + tag + ":" + str(current_date) + ";Score:" + str(score) + ";ATR:" + str(atr))
+        print("$"+ str(currentbalance) + ";" + tag + ":" + str(current_date) + ";Score:" + str(score) + ";ATR:" + str(atr) + ";Positions:" + str(len(positions)))
         if score > thresholdScore and atr > 0:
             symboldict[current_date] = bestsymbol
             atrdict[current_date] = atr

@@ -167,11 +167,11 @@ def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, da
             balance[current_date],
             profit[current_date],
             profitrate[current_date],
-            symboldict[current_date],
-            atrdict[current_date],
-            sizedict[current_date],
-            scoredict[current_date],
-            sidedict[current_date]
+            symboldict[current_date] if current_date in symboldict else None,
+            atrdict[current_date] if current_date in atrdict else None,
+            sizedict[current_date] if current_date in sizedict else None,
+            scoredict[current_date] if current_date in scoredict else None,
+            sidedict[current_date] if current_date in sidedict else None
             ))
     mycursor.executemany(insert_sql, insert_val)
     mydb.commit()    # 数据表内容有更新，必须使用到该语句
