@@ -127,6 +127,39 @@ def get_tickers(symbols, current_date):
 
     return bestsymbol, score, side, atr, price, tickers
 
-def write_trading_log(tag, aiversion, trailingStop, thresholdScore, balance, profit, profitrate, symboldict, atrdict, sizedict):
+def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict):
+    myconnector, mycursor = init_mycursor()
+    insert_val = []
+    insert_sql = "INSERT INTO simulated (" \
+            " TAG, DATE, AI, STOP, TSCORE, LEVERAGE,  BALANCE, PROFIT, PROFITRATE, SYMBOL, ATR, SIZE, SCORE, SIDE) VALUES (" \
+            " %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+            " ON DUPLICATE KEY UPDATE " \
+            " BALANCE = VALUES(BALANCE), " \
+            " PROFIT = VALUES(PROFIT), " \
+            " PROFITRATE = VALUES(PROFITRATE), " \
+            " SYMBOL = VALUES(SYMBOL), " \
+            " ATR = VALUES(ATR), " \
+            " SIZE = VALUES(SIZE), " \
+            " SCORE = VALUES(SCORE), " \
+            " SIDE = VALUES(SIDE) "
 
-    return
+    for current_date in datelist:
+        insert_val.append((
+            tag, 
+            current_date, 
+            aiversion, 
+            trailingStop, 
+            thresholdScore,
+            leverage,
+            balance[current_date],
+            profit[current_date],
+            profitrate[current_date],
+            symboldict[current_date],
+            atrdict[current_date],
+            sizedict[current_date],
+            scoredict[current_date],
+            sidedict[current_date]
+            ))
+    mycursor.executemany(insert_sql, insert_val)
+    mydb.commit()    # 数据表内容有更新，必须使用到该语句
+    print(mycursor.rowcount, 'TAG:"' + tag + '"更新成功。')
