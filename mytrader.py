@@ -4,25 +4,26 @@ def update_balance(positions, current_date, tickers, currentbalance, trailingSto
     exitflag = False
     for position in positions:
         stoplosspoint = trailingStop * position["atr"] + 1
-        symbolticker = tickers[position["symbol"]]
-        if position["side"] == "buy":
-            if position["highprice"] / symbolticker["l"]  > stoplosspoint:
-                position["exitprice"] = position["highprice"] / stoplosspoint
-                position["profit"] = position["size"] * (position["exitprice"] / position["entryprice"] - 1.0)
-                currentprofit = currentprofit + position["profit"]
-                position["exitdate"] = current_date
-                exitflag = True
-            if symbolticker["h"] > position["highprice"]:
-                position["highprice"] = symbolticker["h"]
-        else:
-            if  symbolticker["h"] / position["lowprice"] > stoplosspoint:
-                position["exitprice"] = position["lowprice"] * stoplosspoint
-                position["profit"] = position["size"] * (position["entryprice"] / position["exitprice"] - 1.0)
-                currentprofit = currentprofit + position["profit"]
-                position["exitdate"] = current_date
-                exitflag = True
-            if symbolticker["l"] < position["lowprice"]:
-                position["lowprice"] = symbolticker["l"]
+        if position["symbol"] in tickers:
+            symbolticker = tickers[position["symbol"]]
+            if position["side"] == "buy":
+                if position["highprice"] / symbolticker["l"]  > stoplosspoint:
+                    position["exitprice"] = position["highprice"] / stoplosspoint
+                    position["profit"] = position["size"] * (position["exitprice"] / position["entryprice"] - 1.0)
+                    currentprofit = currentprofit + position["profit"]
+                    position["exitdate"] = current_date
+                    exitflag = True
+                if symbolticker["h"] > position["highprice"]:
+                    position["highprice"] = symbolticker["h"]
+            else:
+                if  symbolticker["h"] / position["lowprice"] > stoplosspoint:
+                    position["exitprice"] = position["lowprice"] * stoplosspoint
+                    position["profit"] = position["size"] * (position["entryprice"] / position["exitprice"] - 1.0)
+                    currentprofit = currentprofit + position["profit"]
+                    position["exitdate"] = current_date
+                    exitflag = True
+                if symbolticker["l"] < position["lowprice"]:
+                    position["lowprice"] = symbolticker["l"]
     positions = [position for position in positions if position["exitdate"] != current_date]
     currentprofitrate = currentprofit / currentbalance
     currentbalance = currentbalance + currentprofit
