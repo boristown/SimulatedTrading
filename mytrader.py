@@ -24,9 +24,20 @@ def update_balance(positions, current_date, tickers, currentbalance, trailingSto
                     exitflag = True
                 if symbolticker["l"] < position["lowprice"]:
                     position["lowprice"] = symbolticker["l"]
+            position["exitprice"] = symbolticker["c"]
+        else:
+            if position["side"] == "buy":
+                position["profit"] = position["size"] * (position["exitprice"] / position["entryprice"] - 1.0)
+            else:
+                position["profit"] = position["size"] * (position["entryprice"] / position["exitprice"] - 1.0)
+            currentprofit = currentprofit + position["profit"]
+            position["exitdate"] = current_date
+            exitflag = True
     positions = [position for position in positions if position["exitdate"] != current_date]
     currentprofitrate = currentprofit / currentbalance
     currentbalance = currentbalance + currentprofit
+    if currentbalance < 0:
+        currentbalance = 0.0
     return positions, currentbalance, currentprofit, currentprofitrate
 
 def new_position(current_date, bestsymbol, side, atr, price, currentbalance, positionratio):

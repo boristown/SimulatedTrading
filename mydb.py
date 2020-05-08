@@ -1,6 +1,7 @@
 import mypsw
 import mysql.connector
 import math
+import datetime
 
 def init_mycursor():
     myconnector = mysql.connector.connect(
@@ -70,7 +71,7 @@ def get_datelist(symbols):
     datelist = []
     myconnector, mycursor = init_mycursor()
     sql_statement = "SELECT distinct date FROM zeroai.pricehistory " \
-        " where F <> 0.5 and  SYMBOL in (%s) order by date " % ','.join(['%s']*len(symbols))
+        " where F <> 0.5 and L <> H  and L > 0 and C > 0 and SYMBOL in (%s) order by date " % ','.join(['%s']*len(symbols))
 
     mycursor.execute(sql_statement, symbols)
     sql_results = mycursor.fetchall()
@@ -82,13 +83,27 @@ def get_atr(symbol, current_date):
     atr = 0.0
     myconnector, mycursor = init_mycursor()
     date_str = current_date.strftime("%Y-%m-%d")
-    sql_statement = "select avg(TR) from ( SELECT h/l-1 as TR FROM zeroai.pricehistory " \
-        " where DATE <= '" + date_str + "' and SYMBOL = '" + symbol + "' " \
-        " order by DATE limit 120 ) TRS"
+    #sql_statement = "select avg(TR) from ( SELECT h/l-1 as TR FROM zeroai.pricehistory " \
+    #    " where DATE <= '" + date_str + "' and SYMBOL = '" + symbol + "' " \
+    #    " order by DATE limit 120 ) TRS"
+    sql_statement = "SELECT symbol, date, o, h, l, c, v, f FROM zeroai.pricehistory where DATE <= '" + date_str + "' and L <> H and L > 0 and C > 0 and SYMBOL = '" + symbol  + "' " \
+        " order by DATE desc limit 120 "
     mycursor.execute(sql_statement)
     sql_results = mycursor.fetchall()
+    lastcloseprice = 0.0
+    maxprice = 0.0
+    minprice = 0.0
+    tr = 0.0
+    trsum = 0.0
     for sql_result in sql_results:
-        atr = float(sql_result[0])
+        if lastcloseprice == 0.0:
+            lastcloseprice = sql_result[5]
+        maxprice = max(sql_result[3], lastcloseprice)
+        minprice = min(sql_result[4], lastcloseprice)
+        tr = maxprice / minprice - 1
+        trsum = trsum + tr
+        lastcloseprice = sql_result[5]
+    atr = trsum / 120.0
     update_str = "update zeroai.pricehistory set ATR = " + str(atr) + " where SYMBOL = '" + symbol + "' and DATE = '" + date_str + "' "
     mycursor.execute(update_str)
     myconnector.commit()    # 数据表内容有更新，必须使用到该语句
@@ -102,10 +117,11 @@ def get_tickers(symbols, current_date):
     price = 0.0
     tickers = {}
     tickerlist = []
+    date_str_yesterday = (current_date - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
     date_str = current_date.strftime("%Y-%m-%d")
     sql_statement = "SELECT * FROM zeroai.pricehistory " \
-        " where DATE = '" + date_str + "' and SYMBOL in (%s) " \
-        " order by F " % ','.join(['%s']*len(symbols))
+        " where L > 0 and C > 0 and ( DATE = '" + date_str + "'  or DATE = '" + date_str_yesterday + "' ) and SYMBOL in (%s) " \
+        " order by SYMBOL, DATE " % ','.join(['%s']*len(symbols))
     mycursor.execute(sql_statement, symbols)
     sql_results = mycursor.fetchall()
     for sql_result in sql_results:
@@ -146,12 +162,12 @@ def get_tickers(symbols, current_date):
 
     return bestsymbol, score, side, price, tickers, atr
 
-def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict):
+def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict, ordersdict):
     myconnector, mycursor = init_mycursor()
     insert_val = []
     insert_sql = "INSERT INTO simulated (" \
-            " TAG, DATE, AI, STOP, TSCORE, LEVERAGE,  BALANCE, PROFIT, PROFITRATE, SYMBOL, ATR, SIZE, SCORE, SIDE) VALUES (" \
-            " %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+            " TAG, DATE, AI, STOP, TSCORE, LEVERAGE,  BALANCE, PROFIT, PROFITRATE, SYMBOL, ATR, SIZE, SCORE, SIDE, ORDERS) VALUES (" \
+            " %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
             " ON DUPLICATE KEY UPDATE " \
             " BALANCE = VALUES(BALANCE), " \
             " PROFIT = VALUES(PROFIT), " \
@@ -160,7 +176,8 @@ def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, da
             " ATR = VALUES(ATR), " \
             " SIZE = VALUES(SIZE), " \
             " SCORE = VALUES(SCORE), " \
-            " SIDE = VALUES(SIDE) "
+            " SIDE = VALUES(SIDE), " \
+            " ORDERS = VALUES(ORDERS) " \
 
     for current_date in datelist:
         insert_val.append((
@@ -177,7 +194,8 @@ def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, da
             atrdict[current_date] if current_date in atrdict else None,
             sizedict[current_date] if current_date in sizedict else None,
             scoredict[current_date] if current_date in scoredict else None,
-            sidedict[current_date] if current_date in sidedict else None
+            sidedict[current_date] if current_date in sidedict else None,
+            ordersdict[current_date]
             ))
     mycursor.executemany(insert_sql, insert_val)
     myconnector.commit()    # 数据表内容有更新，必须使用到该语句
