@@ -36,7 +36,7 @@ def get_subtags(tagname, mycursor):
 
 def get_markets_from_endtags(endtags, mycursor):
     markets = []
-    select_tags_statment = 'select * from tags where tag in (%s) ' % ','.join(['%s']*len(endtags))
+    select_tags_statment = "select tag.* from tags inner join predictlog on tags.symbol = predictlog.symbol and  predictlog.PREDICTDATE > '1950-1-1' where tag in (%s) " % ','.join(['%s']*len(endtags))
     #print(select_tags_statment)
     mycursor.execute(select_tags_statment, endtags)
     tags_results = mycursor.fetchall()
