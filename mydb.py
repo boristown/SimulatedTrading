@@ -86,7 +86,7 @@ def get_atr(symbol, current_date):
     #sql_statement = "select avg(TR) from ( SELECT h/l-1 as TR FROM zeroai.pricehistory " \
     #    " where DATE <= '" + date_str + "' and SYMBOL = '" + symbol + "' " \
     #    " order by DATE limit 120 ) TRS"
-    sql_statement = "SELECT symbol, date, o, h, l, c, v, f FROM zeroai.pricehistory where DATE <= '" + date_str + "' and L <> H and L > 0 and C > 0 and SYMBOL = '" + symbol  + "' " \
+    sql_statement = "SELECT symbol, date, o, h, l, c, v, f FROM zeroai.pricehistory where DATE <= '" + date_str + "' and L <> H and L > 0 and C > 0 and H < L * 100 and SYMBOL = '" + symbol  + "' " \
         " order by DATE desc limit 120 "
     mycursor.execute(sql_statement)
     sql_results = mycursor.fetchall()
@@ -105,11 +105,14 @@ def get_atr(symbol, current_date):
         lastcloseprice = sql_result[5]
     atr = trsum / 120.0
     update_str = "update zeroai.pricehistory set ATR = " + str(atr) + " where SYMBOL = '" + symbol + "' and DATE = '" + date_str + "' "
-    mycursor.execute(update_str)
-    myconnector.commit()    # 数据表内容有更新，必须使用到该语句
+    try:
+        mycursor.execute(update_str)
+        myconnector.commit()    # 数据表内容有更新，必须使用到该语句
+    except Exception as e:
+        print(str(e))
     return atr
 
-def get_tickers(symbols, current_date):
+def get_pricehistory(symbol):
     myconnector, mycursor = init_mycursor()
     bestsymbol = None
     score = 0.0
@@ -117,12 +120,10 @@ def get_tickers(symbols, current_date):
     price = 0.0
     tickers = {}
     tickerlist = []
-    date_str_yesterday = (current_date - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-    date_str = current_date.strftime("%Y-%m-%d")
     sql_statement = "SELECT * FROM zeroai.pricehistory " \
-        " where L > 0 and C > 0 and ( DATE = '" + date_str + "'  or DATE = '" + date_str_yesterday + "' ) and SYMBOL in (%s) " \
+        " where L > 0 and C > 0 and L <> H and H < L * 100 and SYMBOL in (%s) " \
         " order by SYMBOL, DATE " % ','.join(['%s']*len(symbols))
-    mycursor.execute(sql_statement, symbols)
+    mycursor.execute(sql_statement, [symbol])
     sql_results = mycursor.fetchall()
     for sql_result in sql_results:
         result_item = { 
@@ -139,10 +140,52 @@ def get_tickers(symbols, current_date):
             "atr": sql_result[10],
                        }
         tickerlist.append(result_item)
+
+    return tickerlist
+
+def set_atr_balance(symbol, current_date, atr, currentbalance):
+    print("$"+ str(currentbalance) + ":" + symbol)
+    myconnector, mycursor = init_mycursor()
+    date_str = current_date.strftime("%Y-%m-%d")
+    update_str = "update zeroai.pricehistory set ATR = " + str(atr) + ", BALANCE = " + str(currentbalance) + " where SYMBOL = '" + symbol + "' and DATE = '" + date_str + "' "
+    mycursor.execute(update_str)
+    myconnector.commit()    # 数据表内容有更新，必须使用到该语句
+
+def get_tickers(symbols, current_date):
+    myconnector, mycursor = init_mycursor()
+    bestsymbol = None
+    score = 0.0
+    side = 'buy'
+    price = 0.0
+    tickers = {}
+    tickerlist = []
+    date_str_yesterday = (current_date - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    date_str = current_date.strftime("%Y-%m-%d")
+    sql_statement = "SELECT * FROM zeroai.pricehistory " \
+        " where L > 0 and C > 0 and L <> H and H < L * 100 and ( DATE = '" + date_str + "'  or DATE = '" + date_str_yesterday + "' ) and SYMBOL in (%s) " \
+        " order by F, SYMBOL, DATE " % ','.join(['%s']*len(symbols))
+    mycursor.execute(sql_statement, symbols)
+    sql_results = mycursor.fetchall()
+    for sql_result in sql_results:
+        result_item = { 
+            "symbol": sql_result[0],
+            "date": sql_result[1],
+            "o": sql_result[2],
+            "h": sql_result[3],
+            "l": sql_result[4],
+            "c": sql_result[5],
+            "v": sql_result[6],
+            "f": sql_result[7],
+            "pricetime": sql_result[8],
+            "predicttime": sql_result[9],
+            "atr": sql_result[10],
+                       }
+        if sql_result[1] == current_date:
+            tickerlist.append(result_item)
         tickers[sql_result[0]] = result_item
 
     atr = None
-    if len(sql_result) >0:
+    if len(tickerlist) >0:
         score1 = tickerlist[0]["f"] * 2 - 1
         score2 = tickerlist[-1]["f"] * 2 - 1
         if abs(score1) >= abs(score2):
@@ -162,14 +205,20 @@ def get_tickers(symbols, current_date):
 
     return bestsymbol, score, side, price, tickers, atr
 
-def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict, ordersdict):
+def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, datelist, balance, tradingcount, profit, profitrate, symboldict, atrdict, sizedict, scoredict, sidedict, ordersdict,
+                           exitsymboldict,
+                           entrydatedict,
+                           entrypricedict,
+                           exitpricedict,
+                           exitprofitdict):
     myconnector, mycursor = init_mycursor()
     insert_val = []
-    insert_sql = "INSERT INTO simulated (" \
-            " TAG, DATE, AI, STOP, TSCORE, LEVERAGE,  BALANCE, PROFIT, PROFITRATE, SYMBOL, ATR, SIZE, SCORE, SIDE, ORDERS) VALUES (" \
-            " %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+    insert_sql = "INSERT INTO SIMULATED (" \
+            " TAG, DATE, AI, STOP, TSCORE, LEVERAGE,  BALANCE, TRADINGCOUNT, PROFIT, PROFITRATE, SYMBOL, ATR, SIZE, SCORE, SIDE, ORDERS, EXITSYMBOL,ENTRYDATE,ENTRYPRICE, EXITPRICE, EXITPROFIT ) VALUES (" \
+            " %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
             " ON DUPLICATE KEY UPDATE " \
             " BALANCE = VALUES(BALANCE), " \
+            " TRADINGCOUNT = VALUES(TRADINGCOUNT), " \
             " PROFIT = VALUES(PROFIT), " \
             " PROFITRATE = VALUES(PROFITRATE), " \
             " SYMBOL = VALUES(SYMBOL), " \
@@ -177,26 +226,38 @@ def write_trading_log(tag, aiversion, trailingStop, thresholdScore, leverage, da
             " SIZE = VALUES(SIZE), " \
             " SCORE = VALUES(SCORE), " \
             " SIDE = VALUES(SIDE), " \
-            " ORDERS = VALUES(ORDERS) " \
+            " ORDERS = VALUES(ORDERS), " \
+            " EXITSYMBOL = VALUES(EXITSYMBOL), " \
+            " ENTRYDATE = VALUES(ENTRYDATE), " \
+            " ENTRYPRICE = VALUES(ENTRYPRICE), " \
+            " EXITPRICE = VALUES(EXITPRICE), " \
+            " EXITPROFIT = VALUES(EXITPROFIT) " 
 
     for current_date in datelist:
-        insert_val.append((
-            tag, 
-            current_date, 
-            aiversion, 
-            trailingStop, 
-            thresholdScore,
-            leverage,
-            balance[current_date],
-            profit[current_date],
-            profitrate[current_date],
-            symboldict[current_date] if current_date in symboldict else None,
-            atrdict[current_date] if current_date in atrdict else None,
-            sizedict[current_date] if current_date in sizedict else None,
-            scoredict[current_date] if current_date in scoredict else None,
-            sidedict[current_date] if current_date in sidedict else None,
-            ordersdict[current_date]
-            ))
+        if current_date in balance:
+            insert_val.append((
+                tag, 
+                current_date, 
+                aiversion, 
+                trailingStop, 
+                thresholdScore,
+                leverage,
+                balance[current_date],
+                tradingcount,
+                profit[current_date],
+                profitrate[current_date],
+                symboldict[current_date] if current_date in symboldict else None,
+                atrdict[current_date] if current_date in atrdict else None,
+                sizedict[current_date] if current_date in sizedict else None,
+                scoredict[current_date] if current_date in scoredict else None,
+                sidedict[current_date] if current_date in sidedict else None,
+                ordersdict[current_date],
+                exitsymboldict[current_date] if current_date in exitsymboldict else "",
+                entrydatedict[current_date] if current_date in entrydatedict else None,
+                entrypricedict[current_date] if current_date in entrypricedict else 0.0,
+                exitpricedict[current_date] if current_date in exitpricedict else 0.0,
+                exitprofitdict[current_date] if current_date in exitprofitdict else 0.0
+                ))
     mycursor.executemany(insert_sql, insert_val)
     myconnector.commit()    # 数据表内容有更新，必须使用到该语句
     print(mycursor.rowcount, 'TAG:"' + tag + '"更新成功。')
